@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>내 클라우드 북마크 (진단모드)</title>
+    <title>내 클라우드 북마크</title>
     <style>
         :root { --bg-color: #f4f4f9; --container-bg: #ffffff; --primary-color: #333; --accent-color: #007bff; --border-color: #ddd; }
         body { font-family: 'Segoe UI', AppleSDGothicNeo, sans-serif; background-color: var(--bg-color); margin: 0; padding: 20px; color: var(--primary-color); }
@@ -13,43 +13,48 @@
         h2 { margin: 0; font-size: 1.2rem; color: #555; }
         
         .add-btn { background-color: #28a745; color: white; border: none; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: pointer; text-decoration: none; font-size: 14px; }
+        .add-btn:hover { background-color: #218838; }
 
         #searchBox { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid var(--border-color); border-radius: 4px; box-sizing: border-box; font-size: 16px; background: #fafafa; }
         
         ul { list-style: none; padding: 0; margin: 0; border-top: 1px solid var(--border-color); }
-        li { padding: 10px 10px; border-bottom: 1px solid #eee; }
+        li { padding: 10px 10px; border-bottom: 1px solid #eee; display: flex; align-items: center; }
+        li:hover { background-color: #f9f9f9; }
+        
+        .link-wrapper { flex-grow: 1; overflow: hidden; }
         a.main-link { text-decoration: none; color: #333; font-weight: 600; display: block; font-size: 15px; }
-        .url-preview { font-size: 12px; color: #999; display: block; margin-top: 2px; }
+        a.main-link:hover { color: var(--accent-color); }
+        .url-preview { font-size: 12px; color: #999; display: block; margin-top: 2px; font-weight: normal; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-        /* 진단용 스타일 */
-        .debug-box { margin-top: 30px; padding: 15px; background: #333; color: #0f0; font-family: monospace; font-size: 12px; border-radius: 5px; overflow-x: auto; white-space: pre-wrap; }
-        .debug-title { color: #fff; border-bottom: 1px solid #555; padding-bottom: 5px; margin-bottom: 10px; font-weight: bold; }
+        .loading { text-align: center; padding: 30px; color: #888; }
+        .footer-msg { text-align: center; font-size: 12px; color: #aaa; margin-top: 20px; cursor: pointer; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <header>
-        <h2>☁️ 내 북마크 (진단중)</h2>
+        <h2>☁️ 내 북마크</h2>
         <a id="formLink" href="#" target="_blank" class="add-btn">+ 추가하기</a>
     </header>
     
     <input type="text" id="searchBox" placeholder="🔍 검색..." onkeyup="filterLinks()">
 
     <ul id="linkList">
-        <li style="text-align:center; padding:20px;">데이터 연결 시도 중...</li>
+        <div class="loading">데이터 불러오는 중...</div>
     </ul>
 
-    <div class="debug-box">
-        <div class="debug-title">🛠️ 데이터 수신 상태창 (여기를 읽어보세요)</div>
-        <div id="debugLog">대기 중...</div>
+    <div class="footer-msg" onclick="location.reload()">
+        목록이 안 보이면 여기를 클릭해서 새로고침
     </div>
 </div>
 
 <script>
-    // ▼▼▼ 여기에 CSV 주소를 다시 넣어주세요 ▼▼▼
-    const SHEET_CSV_URL = "여기에_CSV_주소_붙여넣기"; 
-    const GOOGLE_FORM_URL = "여기에_설문지_주소";
+    // ▼▼▼ [중요] https:// 로 시작하는 CSV 주소를 정확히 넣어주세요 ▼▼▼
+    const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQDfl8S_VbN1B9s73HnVdCBarN7gqYUKGVu4QwQgbit22UZePiIYqTbUQXOkFIBWa7HIiszXUt8ZN2v/pub?output=csv"; 
+    
+    // ▼▼▼ 구글 설문지 주소 ▼▼▼
+    const GOOGLE_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSc3yNaU4-CWqcwKOlOtllfHACtL7H12rEiEI-giItM_DDqFzQ/viewform?usp=publish-editor";
 
 
     document.getElementById('formLink').href = GOOGLE_FORM_URL;
@@ -57,75 +62,49 @@
 
     async function loadData() {
         const list = document.getElementById('linkList');
-        const debugLog = document.getElementById('debugLog');
-        
         try {
-            // 캐시 방지용 난수 추가
             const response = await fetch(SHEET_CSV_URL + '&t=' + new Date().getTime());
             const data = await response.text();
             
-            // 1. 화면 아래 검은 박스에 원본 데이터를 그대로 찍어봅니다.
-            debugLog.innerText = "데이터 길이: " + data.length + "글자\n\n[데이터 미리보기]:\n" + data.substring(0, 500) + "...";
-
-            // 2. 만약 HTML 코드가 보이면 에러 표시
-            if(data.includes('<html') || data.includes('function(')) {
-                list.innerHTML = `<li style="color:red; text-align:center;">❌ 주소 오류!<br>HTML 형식이 감지되었습니다.<br>CSV 링크가 맞는지 다시 확인해주세요.</li>`;
+            if(data.includes('<html')) {
+                list.innerHTML = `<div class="loading" style="color:red;">주소 오류!<br>https://... 가 맞는지 확인하세요.</div>`;
                 return;
             }
 
             const rows = data.split('\n');
             list.innerHTML = ''; 
 
-            if(rows.length < 2) {
-                list.innerHTML = `<li style="padding:20px; text-align:center;">데이터가 비어있습니다. (설문지 응답이 없거나, 시트가 비어있음)</li>`;
-            }
-
-            // 3. 데이터를 한 줄씩 읽어서 목록을 만듭니다. (조건을 아주 느슨하게 풀었습니다)
-            let count = 0;
-            // 최신순 정렬을 위해 뒤집기
+            // 최신순 정렬
             const reversedRows = [...rows].reverse();
 
             reversedRows.forEach(row => {
-                // 콤마로 나누기
                 const cols = row.split(',');
-                
-                // 데이터가 너무 짧으면 무시 (빈 줄)
                 if(row.length < 5) return;
 
-                // [중요] 컬럼 위치 찾기 (무조건 맨 뒤에 있는 게 주소라고 가정)
-                // 보통: [타임스탬프, 이름, 주소] 순서임.
-                
-                // 이름: 콤마로 나눴을 때 2번째 칸 (인덱스 1)
+                // [타임스탬프, 이름, 주소] 순서 가정 (유연하게 처리)
                 let name = (cols[1] || "이름 없음").replace(/^"|"$/g, '').trim();
-                
-                // 주소: 콤마로 나눴을 때 3번째 칸 (인덱스 2), 없으면 맨 마지막 칸 사용
                 let url = (cols[2] || cols[cols.length-1] || "").replace(/^"|"$/g, '').trim();
 
-                // 헤더(제목줄) 제외하기
                 if(name.includes("Web_Site_Name") || url.includes("Wev_adress")) return;
 
-                // URL에 http 없으면 붙이기
                 if(url && !url.startsWith('http')) url = 'https://' + url;
 
-                // 목록 추가
-                const li = document.createElement('li');
-                li.innerHTML = `
-                    <a href="${url}" class="main-link" target="_blank">
-                        ${name}
-                        <span class="url-preview">${url}</span>
-                    </a>
-                `;
-                list.appendChild(li);
-                count++;
+                if(name && url) {
+                    const li = document.createElement('li');
+                    li.innerHTML = `
+                        <div class="link-wrapper">
+                            <a href="${url}" class="main-link" target="_blank">
+                                ${name}
+                                <span class="url-preview">${url}</span>
+                            </a>
+                        </div>
+                    `;
+                    list.appendChild(li);
+                }
             });
 
-            if(count === 0) {
-                 list.innerHTML = `<li style="padding:20px; text-align:center;">목록을 만들 수 없습니다.<br>아래 검은 박스의 내용을 확인해주세요.</li>`;
-            }
-
         } catch (error) {
-            list.innerHTML = `<li style="color:red; text-align:center;">연결 실패! 인터넷 상태나 주소를 확인하세요.</li>`;
-            debugLog.innerText = "에러 발생: " + error;
+            list.innerHTML = `<div class="loading">연결 실패.<br>잠시 후 다시 시도해주세요.</div>`;
         }
     }
 
@@ -134,7 +113,7 @@
         const items = document.querySelectorAll('#linkList li');
         items.forEach(item => {
             const text = item.innerText.toLowerCase();
-            item.style.display = text.includes(query) ? 'block' : 'none';
+            item.style.display = text.includes(query) ? 'flex' : 'none';
         });
     }
 </script>
